@@ -7,7 +7,7 @@ Created on Sat Jul 20 14:55:53 2024
 from collections import defaultdict
 
 def is_valid_coloring(edge_colors, adjacency_list, u, v, color):
-    # Check if the color is valid for edge (u, v)
+  
     for neighbor in adjacency_list[u]:
         if (u, neighbor) in edge_colors and edge_colors[(u, neighbor)] == color:
             return False
@@ -46,7 +46,7 @@ def find_minimum_edge_coloring(edges):
             return edge_colors, num_colors
     return None, None
 
-# Your edge list
+
 edges = [
     ('Z1','q_0'), ('Z1','q_1'), ('Z1','q_2'), ('Z1','q_3'), ('Z1','q_4'),
     ('Z2','q_4'), ('Z2','q_5'), ('Z2','q_6'), ('Z2','q_7'), ('Z2','q_8'),
