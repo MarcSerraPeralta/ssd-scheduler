@@ -1,14 +1,30 @@
 SSD_LAYOUT_DICT = {
     "code": "smallest_stellated_dodecahedron",
     "logical_qubits": {
-        "L1": {"ind": 0, "log_x": [], "log_z": []},
-        "L2": {"ind": 1, "log_x": [], "log_z": []},
-        "L3": {"ind": 2, "log_x": [], "log_z": []},
-        "L4": {"ind": 3, "log_x": [], "log_z": []},
-        "L5": {"ind": 4, "log_x": [], "log_z": []},
-        "L6": {"ind": 5, "log_x": [], "log_z": []},
-        "L7": {"ind": 6, "log_x": [], "log_z": []},
-        "L8": {"ind": 7, "log_x": [], "log_z": []},
+        "L1": {"ind": 0, "log_x": ["D27", "D26", "D21"], "log_z": ["D21", "D9", "D23"]},
+        "L2": {
+            "ind": 1,
+            "log_x": ["D30", "D25", "D26"],
+            "log_z": ["D24", "D22", "D13"],
+        },
+        "L3": {
+            "ind": 2,
+            "log_x": ["D27", "D22", "D28"],
+            "log_z": ["D23", "D25", "D17"],
+        },
+        "L4": {"ind": 3, "log_x": ["D10", "D7", "D8"], "log_z": ["D10", "D15", "D1"]},
+        "L5": {"ind": 4, "log_x": ["D2", "D3", "D19"], "log_z": ["D29", "D19", "D6"]},
+        "L6": {
+            "ind": 5,
+            "log_x": ["D3", "D4", "D26", "D27"],
+            "log_z": ["D4", "D18", "D13"],
+        },
+        "L7": {"ind": 6, "log_x": ["D11", "D12", "D14"], "log_z": ["D6", "D11", "D20"]},
+        "L8": {
+            "ind": 7,
+            "log_x": ["D30", "D26", "D21", "D12", "D27", "D8", "D9", "D17"],
+            "log_z": ["D23", "D24", "D20", "D9"],
+        },
     },
     "distance": 3,
     "distance_x": 3,
