@@ -9,5 +9,5 @@ from surface_sim.layouts.library.small_stellated_dodecahedron_code import (
 layout = Layout(SSD_LAYOUT_DICT)
 
 fig, ax = plt.subplots()
-plot(ax, layout, add_patches=False)
+plot(ax, layout, add_patches=False, stim_orientation=True)
 plt.show()
