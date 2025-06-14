@@ -61,7 +61,7 @@ while True:
 
     d_circ = get_circuit_distance_from_schedule_for_ssd(schedule)
     ft = d_circ == 3
-    if assert_ft and ft:
+    if assert_ft and (not ft):
         print("Discarding schedule because it is not fault tolerant.")
         continue
     schedules.append(schedule)
