@@ -2,3 +2,4 @@ surface-sim
 qec-util[all]
 pymatching
 matplotlib
+networkx
