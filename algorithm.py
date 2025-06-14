@@ -99,65 +99,120 @@ def find_schedule(
         conds.add_edges_from(parallel_conds.edges)
 
         # loop-blockage
+        loop_blocked_nodes = set()
         for empty_set in empty_sets:
             nodes = set_to_nodes[empty_set]
             bs = nodes.intersection(blocked_nodes)
             rs = nodes.intersection(release_nodes)
             for r, b in product(rs, bs):
                 if nx.has_path(blocking_graph, r, b) and r[0] == b[0]:
-                    other_node = [n for n in proper_conds.neighbors(r) if n in nodes][0]
-                    blocked_nodes.add(other_node)
+                    other_node = [n for n in proper_conds.neighbors(r) if n in nodes]
+                    if len(other_node) != 1:
+                        print(other_node)
+                        raise ValueError
+                    loop_blocked_nodes.add(other_node[0])
 
         conds.remove_nodes_from(blocked_nodes)
+        conds.remove_nodes_from(loop_blocked_nodes)
         conds.remove_nodes_from(colored_nodes)
 
         # find maximum set of edges to color
         if len(conds) == 0:
             raise ValueError(
-                "Cannot add more edges without breaking any restriction. "
+                "Previous coloring was such that it does not allow for any more edges. "
                 "Algorithm has not converged."
             )
-        new_nodes = nx.maximal_independent_set(conds, seed=seed)
+        new_nodes = set(nx.maximal_independent_set(conds, seed=seed))
         if len(new_nodes) == 0:
             raise ValueError(
                 "Cannot add more edges without breaking any restriction. "
                 "Algorithm has not converged."
             )
-        if contains cycles:
-            repeat!!!!
-        list_coloring.append(set(new_nodes))
-        colored_nodes = colored_nodes.union(new_nodes)
 
-        # release blocking edges if necessary
-        for release, blocked in deepcopy(blocking_graph.edges):
-            if release in new_nodes:
-                blocking_edge = blocking_graph.get_edge_data(release, blocked)
-                blocking_edge = blocking_edge["blocking_edge"]
-                blocking_graph.remove_edge(release, blocked)
-                proper_conds.remove_edge(*blocking_edge)
+        # the choice of 'new_nodes' is provisional, as it may contain a full
+        # loop-blocking cycle. First check that there are no full blocking
+        # cycles and then commit to the 'new_nodes'.
+        prov_proper_conds = deepcopy(proper_conds)
+        prov_blocking_graph = deepcopy(blocking_graph)
+        prov_empty_sets = deepcopy(empty_sets)
 
-        # block nodes if needed (only done if the set is empty)
-        for new_node in new_nodes:
-            parallel_edges = [(new_node, n) for n in proper_conds.neighbors(new_node)]
-            perpendicular_edges = [_perpendicular(e) for e in parallel_edges]
-            for paral_edge, perp_edge in zip(parallel_edges, perpendicular_edges):
-                if perp_edge in proper_conds.edges:
-                    proper_conds.remove_edge(*perp_edge)
+        _process_new_nodes(
+            new_nodes,
+            prov_proper_conds,
+            prov_blocking_graph,
+            prov_empty_sets,
+            node_to_sets,
+        )
 
-                    blocked_node = paral_edge[1]
-                    release_node = _release_node(new_node, perp_edge)
-                    blocking_graph.add_edge(
-                        release_node, blocked_node, blocking_edge=paral_edge
-                    )
+        # if there are no cycles, then commit to choice of 'new_nodes';
+        # else remove one of the 'new_nodes' that create the cycle
+        cycles = list(nx.simple_cycles(prov_blocking_graph))
+        if len(cycles) == 0:
+            list_coloring.append(new_nodes)
+            colored_nodes = colored_nodes.union(new_nodes)
 
-        # track empty sets
-        for new_node in new_nodes:
-            for set_ in node_to_sets[new_node]:
-                empty_sets.discard(set_)
+            proper_conds = deepcopy(prov_proper_conds)
+            blocking_graph = deepcopy(prov_blocking_graph)
+            empty_sets = deepcopy(prov_empty_sets)
+        else:
+            # remove one node of each cycle
+            nodes_to_remove = set()
+            for cycle in cycles:
+                for n1, n2 in zip(cycle[:-1], cycle[1:]):
+                    node = prov_blocking_graph.get_edge_data(n1, n2)["colored_node"]
+                    if node in new_nodes:
+                        nodes_to_remove.add(node)
+                        break
+            new_nodes.difference_update(nodes_to_remove)
+            _process_new_nodes(
+                new_nodes,
+                proper_conds,
+                blocking_graph,
+                empty_sets,
+                node_to_sets,
+            )
+            list_coloring.append(new_nodes)
+            colored_nodes = colored_nodes.union(new_nodes)
 
     schedule = list_coloring_to_schedule(list_coloring)
 
     return schedule
+
+
+def _process_new_nodes(
+    new_nodes, proper_conds, blocking_graph, empty_sets, node_to_sets
+) -> None:
+    # release blocking edges if necessary
+    for release, blocked in deepcopy(blocking_graph.edges):
+        if release in new_nodes:
+            blocking_edge = blocking_graph.get_edge_data(release, blocked)
+            blocking_edge = blocking_edge["blocking_edge"]
+            blocking_graph.remove_edge(release, blocked)
+            proper_conds.remove_edge(*blocking_edge)
+
+    # block nodes if needed (only done if the set is empty)
+    for new_node in new_nodes:
+        parallel_edges = [(new_node, n) for n in proper_conds.neighbors(new_node)]
+        perpendicular_edges = [_perpendicular(e) for e in parallel_edges]
+        for paral_edge, perp_edge in zip(parallel_edges, perpendicular_edges):
+            if perp_edge in proper_conds.edges:
+                proper_conds.remove_edge(*perp_edge)
+
+                blocked_node = paral_edge[1]
+                release_node = _release_node(new_node, perp_edge)
+                blocking_graph.add_edge(
+                    release_node,
+                    blocked_node,
+                    blocking_edge=paral_edge,
+                    colored_node=new_node,
+                )
+
+    # track empty sets
+    for new_node in new_nodes:
+        for set_ in node_to_sets[new_node]:
+            empty_sets.discard(set_)
+
+    return
 
 
 def _perpendicular(
