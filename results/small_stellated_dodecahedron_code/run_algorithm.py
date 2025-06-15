@@ -1,3 +1,4 @@
+print("Preparing algorithm...")
 import os
 import pathlib
 import pickle
@@ -5,18 +6,19 @@ import pickle
 import networkx as nx
 from surface_sim.layouts import ssd_code
 
-from algorithm import find_schedule, check_schedule
-from metrics import get_circuit_distance_from_schedule_for_ssd
+from css_scheduler import find_schedule, check_schedule
+from lib.metrics import get_circuit_distance_from_schedule_for_ssd
 
 
-# build tanner graph for small stellated dodecahedron code
+# input parameters
 layout = ssd_code()
 max_depth = 6
 assert_ft = True
 seed = None
 verbose = False
-dir_name = "ssd_schedules"
+dir_name = "schedules"
 
+# build tanner graph for small stellated dodecahedron code
 tanner_graph = nx.Graph()
 tanner_graph.add_nodes_from(layout.qubits)
 for anc_qubit in layout.anc_qubits:
@@ -27,17 +29,22 @@ for anc_qubit in layout.anc_qubits:
 assert set(tanner_graph.nodes) == set(layout.graph.nodes)
 assert tanner_graph.edges == layout.graph.to_undirected().edges
 
-# find schedules and store the ones that are FT and have 6 or less CNOT layers
+
+# load previous schedules to avoid duplicates
 dir = pathlib.Path(dir_name)
 if not dir.exists():
     dir.mkdir(parents=True, exist_ok=True)
 
-# load previous schedules
 schedules = []
 for file_name in os.listdir(dir):
+    if not file_name.endswith(".pickle"):
+        # avoid annoying macOS files (.DS_Store)
+        continue
     with open(dir / file_name, "rb") as file:
         schedules.append(pickle.load(file))
 
+# run algorithm
+print("Running algorithm...")
 iteration = 0
 all_schedules = [s for s in schedules]
 while True:
@@ -65,7 +72,7 @@ while True:
 
     if depth == 5:
         # store even if it is not FT
-        with open(dir / f"depth{depth}_id{len(all_schedules)}.pickle", "wb") as file:
+        with open(dir / f"depth{depth}_tmp{len(schedules)}.pickle", "wb") as file:
             pickle.dump(schedule, file, pickle.HIGHEST_PROTOCOL)
 
     d_circ = get_circuit_distance_from_schedule_for_ssd(schedule)

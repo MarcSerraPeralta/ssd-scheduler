@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+requires-python = ">=3.10"
+name = "css-scheduler"
+description = "Syndrome-extraction scheduler for CSS codes"
+version = "0.1.0"
+authors = [
+    { name = "Marc Serra Peralta", email = "marcserraperalta@gmail.com" },
+]
+maintainers = [
+    { name = "Marc Serra Peralta", email = "marcserraperalta@gmail.com" },
+]
+license = {file = "LICENSE"}
+readme = "README.md"
+dependencies = [
+    "networkx",
+    "PyYAML",
+    "qec-util",
+    "pysat",
+    "surface-sim",
+]
+keywords = ["quantum error correction", "syndrome extraction", "schedule", "parity checks"]
+
+[tool.setuptools.packages.find]
+include = ["css_scheduler", "css_scheduler.*"]  # package names should match these glob patterns (["*"] by default)
+namespaces = false  # to disable scanning PEP 420 namespaces (true by default)
+
+[project.optional-dependencies]
+dev = ["pip-tools", "pytest", "black", "pytest-black", "flake8", "flake8-print", "pytest-flake8", "gprof2dot"]
