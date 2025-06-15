@@ -11,9 +11,10 @@ from metrics import get_circuit_distance_from_schedule_for_ssd
 
 # build tanner graph for small stellated dodecahedron code
 layout = ssd_code()
-max_depth = 7
+max_depth = 6
 assert_ft = True
 seed = None
+verbose = False
 dir_name = "ssd_schedules"
 
 tanner_graph = nx.Graph()
@@ -41,8 +42,8 @@ iteration = 0
 all_schedules = [s for s in schedules]
 while True:
     try:
-        schedule = find_schedule(tanner_graph, seed=seed)
-    except:
+        schedule = find_schedule(tanner_graph, seed=seed, verbose=verbose)
+    except ValueError:
         continue
 
     check_schedule(schedule, tanner_graph)
@@ -52,12 +53,20 @@ while True:
 
     depth = len(schedule[layout.anc_qubits[0]])
     if depth > max_depth:
-        print(f"Discarding schedule dute to long depth ({depth} >= {max_depth}).")
+        print(
+            f"Discarding schedule dute to long depth ({depth} >= {max_depth}).", end=""
+        )
         continue
 
     if schedule in all_schedules:
         print("Discarding schedule because it is already present.")
+        continue
     all_schedules.append(schedule)
+
+    if depth == 5:
+        # store even if it is not FT
+        with open(dir / f"depth{depth}_id{len(all_schedules)}.pickle", "wb") as file:
+            pickle.dump(schedule, file, pickle.HIGHEST_PROTOCOL)
 
     d_circ = get_circuit_distance_from_schedule_for_ssd(schedule)
     ft = d_circ == 3

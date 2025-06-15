@@ -32,6 +32,11 @@ def find_schedule(
         Proper schedule for the given code. The layer of CNOTs are specified as
         a (ordered) list, whose elements correspond to the sets of
         (data-qubit)-stabilizer pairs that undergo a CNOT at the layer.
+
+    Raises
+    ------
+    ValueError
+        If a schedule could not be found in this call of the function.
     """
     if not isinstance(tanner_graph, nx.Graph):
         raise TypeError(
@@ -108,8 +113,7 @@ def find_schedule(
                 if nx.has_path(blocking_graph, r, b) and r[0] == b[0]:
                     other_node = [n for n in proper_conds.neighbors(r) if n in nodes]
                     if len(other_node) != 1:
-                        print(other_node)
-                        raise ValueError
+                        raise ValueError("Something wrong happened in a loop blockage.")
                     loop_blocked_nodes.add(other_node[0])
 
         conds.remove_nodes_from(blocked_nodes)
