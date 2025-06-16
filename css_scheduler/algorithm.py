@@ -220,7 +220,7 @@ def _process_new_nodes(
 
 
 def _perpendicular(
-    edge: tuple[tuple[str, str], tuple[str, str]]
+    edge: tuple[tuple[str, str], tuple[str, str]],
 ) -> tuple[tuple[str, str], tuple[str, str]]:
     (q1, stab1), (q2, stab2) = edge
     return (q1, stab2), (q2, stab1)
