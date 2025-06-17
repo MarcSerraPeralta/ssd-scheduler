@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from itertools import product
 from copy import deepcopy
 import math
+import random
 
 import networkx as nx
 
@@ -11,6 +12,7 @@ def find_schedule(
     seed: int | None = None,
     verbose: bool = False,
     early_stop: dict[str, int] = {},
+    greedy_conds: dict = {},
 ) -> dict[str, list[str | None]]:
     """Returns a proper schedule for a CSS code in which the overlap of any
     pair of Z-type and X-type stabilizers is either 0 or 2 data qubits.
@@ -34,6 +36,11 @@ def find_schedule(
         This flag is useful for finding optimal schedules as it speeds up the search.
         If ``"max_num_layers"`` is specified, the algorithm is stopped if the
         number of layers in the schedule is larger than the specified one.
+    greedy_conds
+        Greedy conditions to apply when running the algorithm. They may make the
+        algorithm not that random. If ``"include_release_nodes"``, then the
+        algorithm will always include the release nodes as new_nodes. This flag
+        is useful for trying to find low-depth schedules.
 
     Returns
     -------
@@ -49,7 +56,11 @@ def find_schedule(
     """
     precompiled = precompile(tanner_graph)
     schedule = find_schedule_from_precompiled(
-        *precompiled, verbose=verbose, seed=seed, early_stop=early_stop
+        *precompiled,
+        verbose=verbose,
+        seed=seed,
+        early_stop=early_stop,
+        greedy_conds=greedy_conds,
     )
 
     return schedule
@@ -168,6 +179,7 @@ def find_schedule_from_precompiled(
     seed: int | None = None,
     verbose: bool = False,
     early_stop: dict[str, int] = {},
+    greedy_conds: dict = {},
 ) -> dict[str, list[str | None]]:
     """
     Returns a proper schedule for a CSS code in which the overlap of any
@@ -211,6 +223,11 @@ def find_schedule_from_precompiled(
         This flag is useful for finding optimal schedules as it speeds up the search.
         If ``"max_num_layers"`` is specified, the algorithm is stopped if the
         number of layers in the schedule is larger than the specified one.
+    greedy_conds
+        Greedy conditions to apply when running the algorithm. They may make the
+        algorithm not that random. If ``"include_release_nodes"``, then the
+        algorithm will always include the release nodes as new_nodes. This flag
+        is useful for trying to find low-depth schedules.
 
     Returns
     -------
@@ -263,7 +280,17 @@ def find_schedule_from_precompiled(
                 "Previous coloring was such that it does not allow for any more edges. "
                 "Algorithm has not converged."
             )
-        new_nodes = set(nx.maximal_independent_set(conds, seed=seed))
+        nodes = []
+        if "include_release_nodes" in greedy_conds:
+            nodes = list(release_nodes.difference(blocked_nodes, loop_blocked_nodes))
+            random.Random(seed).shuffle(nodes)
+            max_nodes = greedy_conds["include_release_nodes"]
+            if len(nodes) > max_nodes:
+                nodes = nodes[:max_nodes]
+            neighbors = set().union(*[set(conds.adj[v]) for v in nodes])
+            # remove unfeasible nodes that are not an independent set
+            nodes = set(nodes).difference(neighbors)
+        new_nodes = set(nx.maximal_independent_set(conds, seed=seed, nodes=nodes))
         if len(new_nodes) < early_stop.get("min_num_new_nodes", -1):
             raise ValueError(f"Early stopping after {len(list_coloring)} iterations.")
         if len(new_nodes) == 0:

@@ -67,6 +67,7 @@ while True:
             seed=seed,
             verbose=verbose,
             early_stop={"max_num_layers": max_depth},
+            greedy_conds={"include_release_nodes": 24},
         )
     except ValueError as error:
         print(error, end="")
