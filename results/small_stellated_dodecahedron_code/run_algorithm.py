@@ -8,7 +8,7 @@ import networkx as nx
 from surface_sim.layouts import ssd_code
 
 from css_scheduler import find_schedule_from_precompiled, precompile, check_schedule
-from lib.metrics import get_circuit_distance_from_schedule_for_ssd
+from util.metrics import get_circuit_distance_from_schedule_for_ssd
 
 
 # input parameters
