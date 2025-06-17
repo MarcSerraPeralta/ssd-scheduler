@@ -2,11 +2,12 @@ print("Preparing algorithm...")
 import os
 import pathlib
 import pickle
+from copy import deepcopy
 
 import networkx as nx
 from surface_sim.layouts import ssd_code
 
-from css_scheduler import find_schedule, check_schedule
+from css_scheduler import find_schedule_from_precompiled, precompile, check_schedule
 from lib.metrics import get_circuit_distance_from_schedule_for_ssd
 
 
@@ -43,20 +44,35 @@ for file_name in os.listdir(dir):
     with open(dir / file_name, "rb") as file:
         schedules.append(pickle.load(file))
 
+# precompile data
+proper_conds, parallel_conds, blocking_graph, node_to_sets, set_to_nodes, empty_sets = (
+    precompile(tanner_graph)
+)
+
 # run algorithm
 print("Running algorithm...")
 iteration = 0
 all_schedules = [s for s in schedules]
 while True:
     try:
-        schedule = find_schedule(tanner_graph, seed=seed, verbose=verbose)
-    except ValueError:
+        iteration += 1
+        print(f"\riteration = {iteration}... ", end="")
+        schedule = find_schedule_from_precompiled(
+            deepcopy(proper_conds),
+            parallel_conds,
+            deepcopy(blocking_graph),
+            node_to_sets,
+            set_to_nodes,
+            deepcopy(empty_sets),
+            seed=seed,
+            verbose=verbose,
+            early_stop={"max_num_layers": max_depth},
+        )
+    except ValueError as error:
+        print(error, end="")
         continue
 
     check_schedule(schedule, tanner_graph)
-
-    iteration += 1
-    print(f"\riteration = {iteration}... ", end="")
 
     depth = len(schedule[layout.anc_qubits[0]])
     if depth > max_depth:
