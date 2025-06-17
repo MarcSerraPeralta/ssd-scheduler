@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from itertools import product
 from copy import deepcopy
+import math
 
 import networkx as nx
 
@@ -9,6 +10,7 @@ def find_schedule(
     tanner_graph: nx.Graph,
     seed: int | None = None,
     verbose: bool = False,
+    early_stop: dict[str, int] = {},
 ) -> dict[str, list[str | None]]:
     """Returns a proper schedule for a CSS code in which the overlap of any
     pair of Z-type and X-type stabilizers is either 0 or 2 data qubits.
@@ -25,6 +27,13 @@ def find_schedule(
     verbose
         If ``True`` prints the status of the colored edges while the algorithm
         is running.
+    early_stop
+        Dictionary specifying possible methods to early stop the algorithm.
+        If ``"min_num_new_nodes"`` is specified, the algorithm is stopped if the
+        number of new nodes in a layer is not equal or larger than the specified one.
+        This flag is useful for finding optimal schedules as it speeds up the search.
+        If ``"max_num_layers"`` is specified, the algorithm is stopped if the
+        number of layers in the schedule is larger than the specified one.
 
     Returns
     -------
@@ -37,6 +46,56 @@ def find_schedule(
     ------
     ValueError
         If a schedule could not be found in this call of the function.
+    """
+    precompiled = precompile(tanner_graph)
+    schedule = find_schedule_from_precompiled(
+        *precompiled, verbose=verbose, seed=seed, early_stop=early_stop
+    )
+
+    return schedule
+
+
+def precompile(
+    tanner_graph: nx.Graph,
+) -> tuple[
+    nx.Graph,
+    nx.Graph,
+    nx.Graph,
+    dict[tuple[str, str], Sequence[int]],
+    dict[int, set[tuple[str, str]]],
+    set[int],
+]:
+    """
+    Precompiles all the variables needed for the shceduler-finder algorithm.
+
+    Parameters
+    ----------
+    tanner_graph
+        Tanner graph of the CSS code. The data qubits labels must start with ``"D"``,
+        the X-type stabilizers with ``"X"``, and the Z-type stabilizers with ``"Z"``.
+        The overlap of any pair of Z-type and X-type stabilizer must be either
+        0 or 2 data qubits.
+
+    Returns
+    -------
+    proper_conds
+        Graph representing the properness conditions, with nodes being the
+        nodes from a line graph representation of the Tanner graph.
+    parallel_conds
+        Graph representing the parallelness conditions (i.e. which CNOTs can
+        be executed in parallel in a single layer of the schedule), with nodes being the
+        nodes from a line graph representation of the Tanner graph.
+    blocking_graph
+        Graph without edges but with nodes being the
+        nodes from a line graph representation of the Tanner graph.
+    node_to_sets
+        Mapping of the line-graph nodes to the indicies that specify the pair
+        of X- and Z-type stabilizers that have non-zero overlap.
+    set_to_nodes
+        Mapping of the indicies that specify the pair of X- and Z-type stabilizers
+        to the line-graph nodes that have support on that "overlap".
+    empty_sets
+        Set whose elements correspond to all the keys of ``set_to_nodes``.
     """
     if not isinstance(tanner_graph, nx.Graph):
         raise TypeError(
@@ -89,6 +148,82 @@ def find_schedule(
         set_to_nodes[ind] = {(q1, z_stab), (q2, z_stab), (q1, x_stab), (q2, x_stab)}
         empty_sets.add(ind)
 
+    return (
+        proper_conds,
+        parallel_conds,
+        blocking_graph,
+        node_to_sets,
+        set_to_nodes,
+        empty_sets,
+    )
+
+
+def find_schedule_from_precompiled(
+    proper_conds: nx.Graph,
+    parallel_conds: nx.Graph,
+    blocking_graph: nx.Graph,
+    node_to_sets: dict[tuple[str, str], Sequence[int]],
+    set_to_nodes: dict[int, set[tuple[str, str]]],
+    empty_sets: set[int],
+    seed: int | None = None,
+    verbose: bool = False,
+    early_stop: dict[str, int] = {},
+) -> dict[str, list[str | None]]:
+    """
+    Returns a proper schedule for a CSS code in which the overlap of any
+    pair of Z-type and X-type stabilizers is either 0 or 2 data qubits.
+
+    Parameters
+    ----------
+    proper_conds
+        Graph representing the properness conditions, with nodes being the
+        nodes from a line graph representation of the Tanner graph.
+        Note that this graph is going to be updated. To not overwritte the
+        given graph, use ``copy.deepcopy``.
+    parallel_conds
+        Graph representing the parallelness conditions (i.e. which CNOTs can
+        be executed in parallel in a single layer of the schedule), with nodes being the
+        nodes from a line graph representation of the Tanner graph.
+    blocking_graph
+        Graph without edges but with nodes being the
+        nodes from a line graph representation of the Tanner graph.
+        Note that this graph is going to be updated. To not overwritte the
+        given graph, use ``copy.deepcopy``.
+    node_to_sets
+        Mapping of the line-graph nodes to the indicies that specify the pair
+        of X- and Z-type stabilizers that have non-zero overlap.
+    set_to_nodes
+        Mapping of the indicies that specify the pair of X- and Z-type stabilizers
+        to the line-graph nodes that have support on that "overlap".
+    empty_sets
+        Set whose elements correspond to all the keys of ``set_to_nodes``.
+        Note that this set is going to be updated. To not overwritte the
+        given set, use ``copy.deepcopy``.
+    seed
+        Random seed for ``nx.maximal_independent_set``. By default ``None``.
+    verbose
+        If ``True`` prints the status of the colored edges while the algorithm
+        is running.
+    early_stop
+        Dictionary specifying possible methods to early stop the algorithm.
+        If ``"min_num_new_nodes"`` is specified, the algorithm is stopped if the
+        number of new nodes in a layer is smaller than the specified one.
+        This flag is useful for finding optimal schedules as it speeds up the search.
+        If ``"max_num_layers"`` is specified, the algorithm is stopped if the
+        number of layers in the schedule is larger than the specified one.
+
+    Returns
+    -------
+    schedule
+        Proper schedule for the given code. The layer of CNOTs are specified as
+        a (ordered) list, whose elements correspond to the sets of
+        (data-qubit)-stabilizer pairs that undergo a CNOT at the layer.
+
+    Raises
+    ------
+    ValueError
+        If a schedule could not be found in this call of the function.
+    """
     list_coloring = []
     colored_nodes = set()
     while len(colored_nodes) != len(parallel_conds.nodes):
@@ -96,6 +231,8 @@ def find_schedule(
             print(
                 f"{len(colored_nodes)} nodes colored out of {len(parallel_conds.nodes)}"
             )
+        if len(list_coloring) >= early_stop.get("max_num_layers", math.inf):
+            raise ValueError(f"Early stopping after {len(list_coloring)} iterations.")
 
         blocked_nodes = set(e[1] for e in blocking_graph.edges)
         release_nodes = set(e[0] for e in blocking_graph.edges)
@@ -127,6 +264,8 @@ def find_schedule(
                 "Algorithm has not converged."
             )
         new_nodes = set(nx.maximal_independent_set(conds, seed=seed))
+        if len(new_nodes) < early_stop.get("min_num_new_nodes", -1):
+            raise ValueError(f"Early stopping after {len(list_coloring)} iterations.")
         if len(new_nodes) == 0:
             raise ValueError(
                 "Cannot add more edges without breaking any restriction. "
